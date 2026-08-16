@@ -55,7 +55,12 @@ export default function App() {
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
-        if (!parsed.storeLogoUrl || parsed.storeLogoUrl.includes('lgangotra-hub/eilika/')) {
+        if (
+          !parsed.storeLogoUrl ||
+          parsed.storeLogoUrl.includes('eilikastore1') ||
+          parsed.storeLogoUrl.includes('lgangotra-hub/eilika/') ||
+          !parsed.storeLogoUrl.includes('b342ee4f-09da-4caa-80ac-df9cbe79e165')
+        ) {
           parsed.storeLogoUrl = DEFAULT_STORE_SETTINGS.storeLogoUrl;
         }
         return parsed;
@@ -65,6 +70,16 @@ export default function App() {
     }
     return DEFAULT_STORE_SETTINGS;
   });
+
+  // Keep browser tab favicon updated with the store logo
+  useEffect(() => {
+    if (storeSettings.storeLogoUrl) {
+      const favicons = document.querySelectorAll<HTMLLinkElement>("link[rel*='icon'], link[rel*='apple-touch-icon']");
+      favicons.forEach((fav) => {
+        fav.href = storeSettings.storeLogoUrl;
+      });
+    }
+  }, [storeSettings.storeLogoUrl]);
 
   const handleSaveStoreSettings = (newSettings: StoreSettings) => {
     setStoreSettings(newSettings);

@@ -314,7 +314,7 @@ export const DEFAULT_STORE_SETTINGS: StoreSettings = {
   streetAddress: '1000 Sherbrooke St W Level C',
   cityProvince: 'Montreal, QC H3A 3G4',
   mapUrl: 'https://www.google.com/maps/search/?api=1&query=1000+Sherbrooke+St+W+Montreal+QC+H3A+3G4',
-  storeLogoUrl: 'https://github.com/lgangotra-hub/eilikastore1/blob/main/image/b342ee4f-09da-4caa-80ac-df9cbe79e165.jpg?raw=true',
+  storeLogoUrl: 'https://raw.githubusercontent.com/lgangotra-hub/EilikacateringCA/main/image/b342ee4f-09da-4caa-80ac-df9cbe79e165.jpg',
   panoramaHeroUrl: 'https://pannellum.org/images/alma.jpg',
   openingHours: {
     weekdays: '7:00 AM - 11:00 PM',
@@ -328,7 +328,7 @@ export const DEFAULT_STORE_SETTINGS: StoreSettings = {
 
 export const DEFAULT_GITHUB_CONFIG: GithubConfig = {
   username: 'lgangotra-hub',
-  repository: 'eilikastore1',
+  repository: 'EilikacateringCA',
   personalAccessToken: '',
   targetDirectory: 'image',
   branch: 'main',

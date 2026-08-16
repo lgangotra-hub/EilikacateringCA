@@ -37,9 +37,13 @@ export const Footer: React.FC<FooterProps> = ({
                 <img
                   src={storeSettings.storeLogoUrl}
                   alt={storeSettings.storeName}
+                  referrerPolicy="no-referrer"
                   className="w-full h-full object-cover"
                   onError={(e) => {
-                    (e.target as HTMLElement).style.display = 'none';
+                    const target = e.currentTarget;
+                    if (!target.src.includes('raw.githubusercontent.com')) {
+                      target.src = 'https://raw.githubusercontent.com/lgangotra-hub/EilikacateringCA/main/image/b342ee4f-09da-4caa-80ac-df9cbe79e165.jpg';
+                    }
                   }}
                 />
               </div>

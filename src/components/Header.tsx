@@ -72,18 +72,19 @@ export const Header: React.FC<HeaderProps> = ({
               title={`${storeSettings.storeName} - ${storeSettings.tagline}`}
             >
               {/* Logo with Glowing Border */}
-              <div className="relative w-10 h-10 sm:w-11 sm:h-11 rounded-2xl overflow-hidden border-2 border-amber-500/80 shadow-md bg-stone-900 flex-shrink-0 transition-transform duration-300 group-hover:scale-105">
+              <div className="relative w-10 h-10 sm:w-11 sm:h-11 rounded-2xl overflow-hidden border-2 border-amber-500 shadow-md bg-stone-900 flex-shrink-0 transition-transform duration-300 group-hover:scale-105">
                 <img
                   src={storeSettings.storeLogoUrl}
                   alt={storeSettings.storeName}
+                  referrerPolicy="no-referrer"
                   onError={(e) => {
-                    (e.target as HTMLElement).style.display = 'none';
+                    const target = e.currentTarget;
+                    if (!target.src.includes('raw.githubusercontent.com')) {
+                      target.src = 'https://raw.githubusercontent.com/lgangotra-hub/EilikacateringCA/main/image/b342ee4f-09da-4caa-80ac-df9cbe79e165.jpg';
+                    }
                   }}
                   className="w-full h-full object-cover"
                 />
-                <div className="absolute inset-0 flex items-center justify-center bg-amber-600 text-white font-serif font-black text-sm -z-10">
-                  DE
-                </div>
               </div>
 
               {/* Store Title & French/Montreal Subtitle */}

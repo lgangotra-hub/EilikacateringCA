@@ -143,8 +143,19 @@ export const StoreLocationSection: React.FC<StoreLocationSectionProps> = ({
 
               {/* Floating Location Overlay Card */}
               <div className="absolute top-4 left-4 p-3 sm:p-3.5 rounded-2xl bg-slate-950/90 backdrop-blur-md text-white border border-white/20 shadow-xl text-xs flex items-center gap-3 max-w-[300px]">
-                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-400 to-orange-500 text-slate-950 flex items-center justify-center font-black font-serif text-sm shadow-md flex-shrink-0">
-                  DE
+                <div className="w-10 h-10 rounded-xl overflow-hidden border-2 border-amber-400 bg-stone-900 shadow-md flex-shrink-0">
+                  <img
+                    src={storeSettings.storeLogoUrl}
+                    alt={storeSettings.storeName}
+                    referrerPolicy="no-referrer"
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      const target = e.currentTarget;
+                      if (!target.src.includes('raw.githubusercontent.com')) {
+                        target.src = 'https://raw.githubusercontent.com/lgangotra-hub/EilikacateringCA/main/image/b342ee4f-09da-4caa-80ac-df9cbe79e165.jpg';
+                      }
+                    }}
+                  />
                 </div>
                 <div>
                   <h4 className="font-black text-white text-sm leading-tight">{storeSettings.storeName}</h4>

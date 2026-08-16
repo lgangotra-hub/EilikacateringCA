@@ -59,10 +59,14 @@ export const SideDrawer: React.FC<SideDrawerProps> = ({
                 <img
                   src={storeSettings.storeLogoUrl}
                   alt={storeSettings.storeName}
-                  className="w-full h-full object-cover"
+                  referrerPolicy="no-referrer"
                   onError={(e) => {
-                    (e.target as HTMLElement).style.display = 'none';
+                    const target = e.currentTarget;
+                    if (!target.src.includes('raw.githubusercontent.com')) {
+                      target.src = 'https://raw.githubusercontent.com/lgangotra-hub/EilikacateringCA/main/image/b342ee4f-09da-4caa-80ac-df9cbe79e165.jpg';
+                    }
                   }}
+                  className="w-full h-full object-cover"
                 />
               </div>
               <div>

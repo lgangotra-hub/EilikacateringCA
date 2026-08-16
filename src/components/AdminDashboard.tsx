@@ -352,13 +352,17 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             </button>
             
             <div className="flex items-center gap-2.5">
-              <div className="w-7 h-7 rounded-lg overflow-hidden border border-amber-500/60 bg-stone-900 flex-shrink-0">
+              <div className="w-8 h-8 rounded-lg overflow-hidden border border-amber-500/60 bg-stone-900 flex-shrink-0">
                 <img
                   src={storeSettings.storeLogoUrl}
                   alt={storeSettings.storeName}
+                  referrerPolicy="no-referrer"
                   className="w-full h-full object-cover"
                   onError={(e) => {
-                    (e.target as HTMLElement).style.display = 'none';
+                    const target = e.currentTarget;
+                    if (!target.src.includes('raw.githubusercontent.com')) {
+                      target.src = 'https://raw.githubusercontent.com/lgangotra-hub/EilikacateringCA/main/image/b342ee4f-09da-4caa-80ac-df9cbe79e165.jpg';
+                    }
                   }}
                 />
               </div>
@@ -1376,7 +1380,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     type="url"
                     value={tempStoreSettings.storeLogoUrl}
                     onChange={(e) => setTempStoreSettings({ ...tempStoreSettings, storeLogoUrl: e.target.value })}
-                    placeholder="https://github.com/lgangotra-hub/eilika/blob/main/image/b342ee4f-09da-4caa-80ac-df9cbe79e165.jpg?raw=true"
+                    placeholder="https://raw.githubusercontent.com/lgangotra-hub/EilikacateringCA/main/image/b342ee4f-09da-4caa-80ac-df9cbe79e165.jpg"
                     className="flex-1 w-full px-3.5 py-2.5 rounded-xl text-xs bg-slate-900 border border-white/15 text-white"
                   />
                   <label className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 cursor-pointer text-xs font-bold flex items-center justify-center gap-1.5 whitespace-nowrap">
@@ -1390,9 +1394,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   <img
                     src={tempStoreSettings.storeLogoUrl}
                     alt="Logo Preview"
+                    referrerPolicy="no-referrer"
                     className="w-12 h-12 rounded-xl object-cover border border-amber-500/50 bg-stone-900"
                     onError={(e) => {
-                      (e.target as HTMLElement).style.display = 'none';
+                      const target = e.currentTarget;
+                      if (!target.src.includes('raw.githubusercontent.com')) {
+                        target.src = 'https://raw.githubusercontent.com/lgangotra-hub/EilikacateringCA/main/image/b342ee4f-09da-4caa-80ac-df9cbe79e165.jpg';
+                      }
                     }}
                   />
                   <span className="text-[11px] text-stone-400">
