@@ -1,6 +1,0 @@
-{
-  "name": "Depanneur Eilika",
-  "description": "Artisanal Catering & Delicatessen e-commerce platform with 360° virtual tour, customizable glassmorphism themes, dynamic clocks, and comprehensive admin dashboard.",
-  "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
-}
