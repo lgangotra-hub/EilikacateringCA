@@ -19,7 +19,12 @@ import {
   RefreshCw,
   ExternalLink,
   Edit,
-  Eye
+  Eye,
+  Globe,
+  Cloud,
+  CheckCircle2,
+  Copy,
+  Info
 } from 'lucide-react';
 import { 
   BadgeDesignId, 
@@ -34,6 +39,7 @@ import { BADGE_OPTIONS } from '../data/badges';
 import { THEMES } from '../data/themes';
 import { ProductBadge } from './ProductBadge';
 import { ThemeClock } from './ThemeClock';
+import { commitStoreDataWorldwide } from '../services/storeSync';
 
 interface AdminDashboardProps {
   onClose: () => void;
@@ -94,17 +100,141 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [newProductUnit, setNewProductUnit] = useState('150g');
   const [productFormError, setProductFormError] = useState('');
 
+  // Global upload & sync state
+  const [isUploadingToGithub, setIsUploadingToGithub] = useState<string | null>(null);
+  const [isSyncingWorldwide, setIsSyncingWorldwide] = useState(false);
+  const [uploadNotice, setUploadNotice] = useState<{ msg: string; type: 'success' | 'info' | 'error' } | null>(null);
+
+  // Helper function to auto-commit entire store data bundle to GitHub for 100% worldwide live persistence
+  const syncStoreDataToWorldwideGitHub = async (
+    customSettings?: StoreSettings,
+    customProducts?: Product[],
+    customCategories?: Category[]
+  ) => {
+    const token = tempGithubConfig.personalAccessToken?.trim() || githubConfig.personalAccessToken?.trim();
+    if (!token) return;
+
+    setIsSyncingWorldwide(true);
+    const result = await commitStoreDataWorldwide(
+      { ...githubConfig, ...tempGithubConfig },
+      {
+        version: 1,
+        lastUpdated: new Date().toISOString(),
+        storeSettings: customSettings || tempStoreSettings || storeSettings,
+        products: customProducts || products,
+        categories: customCategories || categories,
+        themeId: activeTheme.id,
+      }
+    );
+
+    setIsSyncingWorldwide(false);
+    if (result.success) {
+      setUploadNotice({
+        msg: `✓ Worldwide Live Synced! All changes committed to GitHub and visible everywhere globally.`,
+        type: 'success',
+      });
+      setTimeout(() => setUploadNotice(null), 6000);
+    } else {
+      console.warn('Sync notice:', result.message);
+    }
+  };
+
+  // Helper: Upload file to GitHub repository for worldwide live CDN link, or fallback to local
+  const uploadImageWorldwide = async (
+    file: File,
+    prefix: 'logo' | 'hero360' | 'product',
+    onSuccess: (permanentUrl: string) => void
+  ) => {
+    if (!file) return;
+
+    const token = tempGithubConfig.personalAccessToken?.trim() || githubConfig.personalAccessToken?.trim();
+    
+    if (token) {
+      setIsUploadingToGithub(prefix);
+      setUploadNotice({ msg: `⚡ Uploading & Committing image to GitHub CDN for Worldwide Live update...`, type: 'info' });
+      try {
+        const base64Data = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => {
+            const res = reader.result as string;
+            const clean = res.split(',')[1];
+            resolve(clean);
+          };
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        });
+
+        const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg';
+        const cleanName = file.name.replace(/[^a-zA-Z0-9]/g, '-').slice(0, 16);
+        const fileName = `${prefix}-${Date.now()}-${cleanName}.${ext}`;
+        const dir = tempGithubConfig.targetDirectory || 'image';
+        const filePath = `${dir}/${fileName}`;
+        const owner = tempGithubConfig.username || 'lgangotra-hub';
+        const repo = tempGithubConfig.repository || 'EilikacateringCA';
+        const branch = tempGithubConfig.branch || 'main';
+
+        const apiUrl = `https://api.github.com/repos/${owner}/${repo}/contents/${filePath}`;
+        const res = await fetch(apiUrl, {
+          method: 'PUT',
+          headers: {
+            Authorization: `token ${token}`,
+            Accept: 'application/vnd.github.v3+json',
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            message: `Upload ${prefix} image: ${fileName} via Admin Dashboard [Worldwide CDN]`,
+            content: base64Data,
+            branch: branch,
+          }),
+        });
+
+        if (res.ok) {
+          const permanentCdnUrl = `https://raw.githubusercontent.com/${owner}/${repo}/${branch}/${filePath}`;
+          onSuccess(permanentCdnUrl);
+          setUploadNotice({
+            msg: `✓ Worldwide Live Success! Image committed to GitHub: ${filePath}. Live for all visitors globally.`,
+            type: 'success',
+          });
+          setTimeout(() => setUploadNotice(null), 6000);
+          return;
+        } else {
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(errData.message || `Status ${res.status}`);
+        }
+      } catch (err: any) {
+        console.error('GitHub auto upload error:', err);
+        setUploadNotice({
+          msg: `⚠ GitHub commit failed (${err.message}). Using local preview. (Check Token in GitHub API tab).`,
+          type: 'error',
+        });
+      } finally {
+        setIsUploadingToGithub(null);
+      }
+    } else {
+      setUploadNotice({
+        msg: `ℹ Saved locally in this browser. To make images Worldwide Live for all users, enter your GitHub Personal Access Token in the "GitHub API" tab!`,
+        type: 'info',
+      });
+      setTimeout(() => setUploadNotice(null), 7000);
+    }
+
+    // Fallback / Local FileReader
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      if (event.target?.result) {
+        onSuccess(event.target.result as string);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
   // Handle local image file upload for product
   const handleProductImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        if (event.target?.result) {
-          setNewProductImage(event.target.result as string);
-        }
-      };
-      reader.readAsDataURL(file);
+      uploadImageWorldwide(file, 'product', (url) => {
+        setNewProductImage(url);
+      });
     }
   };
 
@@ -140,6 +270,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     const updated = [newProd, ...products];
     onSaveProducts(updated);
     triggerSaveState('add-product');
+    syncStoreDataToWorldwideGitHub(tempStoreSettings, updated, categories);
 
     // Reset Form
     setNewProductName('');
@@ -157,6 +288,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       const updated = products.filter((p) => p.id !== id);
       onSaveProducts(updated);
       triggerSaveState('product-list');
+      syncStoreDataToWorldwideGitHub(tempStoreSettings, updated, categories);
     }
   };
 
@@ -190,6 +322,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     setNewCatNameFr('');
     setCategoryError('');
     triggerSaveState('categories');
+    syncStoreDataToWorldwideGitHub(tempStoreSettings, products, updated);
   };
 
   const handleDeleteCategory = (catId: string) => {
@@ -201,6 +334,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       const updated = categories.filter((c) => c.id !== catId);
       onSaveCategories(updated);
       triggerSaveState('categories');
+      syncStoreDataToWorldwideGitHub(tempStoreSettings, products, updated);
     }
   };
 
@@ -210,38 +344,27 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        if (event.target?.result) {
-          setTempStoreSettings((prev) => ({
-            ...prev,
-            storeLogoUrl: event.target?.result as string,
-          }));
-        }
-      };
-      reader.readAsDataURL(file);
+      uploadImageWorldwide(file, 'logo', (url) => {
+        const next = { ...tempStoreSettings, storeLogoUrl: url };
+        setTempStoreSettings(next);
+      });
     }
   };
 
   const handlePanoramaUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        if (event.target?.result) {
-          setTempStoreSettings((prev) => ({
-            ...prev,
-            panoramaHeroUrl: event.target?.result as string,
-          }));
-        }
-      };
-      reader.readAsDataURL(file);
+      uploadImageWorldwide(file, 'hero360', (url) => {
+        const next = { ...tempStoreSettings, panoramaHeroUrl: url };
+        setTempStoreSettings(next);
+      });
     }
   };
 
   const handleSaveStoreSettings = () => {
     onSaveStoreSettings(tempStoreSettings);
     triggerSaveState('store-settings');
+    syncStoreDataToWorldwideGitHub(tempStoreSettings, products, categories);
   };
 
   // --- 4. GITHUB API PRESET STATE ---
@@ -372,8 +495,33 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             </div>
           </div>
 
-          {/* Right side status & close */}
+          {/* Right side status & sync & logout */}
           <div className="flex items-center gap-2 sm:gap-3">
+            {/* Worldwide Live Push Button */}
+            <button
+              id="btn-admin-sync-worldwide"
+              onClick={() => syncStoreDataToWorldwideGitHub()}
+              disabled={isSyncingWorldwide}
+              title="Push all store products & settings live to GitHub for worldwide visitors"
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all active:scale-95 border ${
+                tempGithubConfig.personalAccessToken
+                  ? 'bg-emerald-600/30 hover:bg-emerald-600 border-emerald-500/40 text-emerald-300 hover:text-white'
+                  : 'bg-amber-500/20 hover:bg-amber-500/30 border-amber-500/40 text-amber-300'
+              }`}
+            >
+              {isSyncingWorldwide ? (
+                <>
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin text-emerald-300" />
+                  <span>Syncing Worldwide...</span>
+                </>
+              ) : (
+                <>
+                  <Globe className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>Worldwide Live Sync</span>
+                </>
+              )}
+            </button>
+
             <div className="hidden sm:flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs font-mono">
               <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
               <span>{storeSettings.storeName}</span>
@@ -482,7 +630,37 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       </header>
 
       {/* 3. MAIN DASHBOARD CONTENT AREA */}
-      <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8 space-y-8">
+      <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8 space-y-6">
+        
+        {/* Worldwide CDN Upload Notice Banner */}
+        {uploadNotice && (
+          <div
+            className={`p-4 rounded-2xl border text-xs flex items-center justify-between gap-3 shadow-xl animate-in slide-in-from-top-2 duration-300 ${
+              uploadNotice.type === 'success'
+                ? 'bg-emerald-950/80 border-emerald-500/50 text-emerald-200'
+                : uploadNotice.type === 'error'
+                ? 'bg-red-950/80 border-red-500/50 text-red-200'
+                : 'bg-amber-950/80 border-amber-500/50 text-amber-200'
+            }`}
+          >
+            <div className="flex items-center gap-2.5">
+              {uploadNotice.type === 'success' ? (
+                <CheckCircle2 className="w-5 h-5 text-emerald-400 flex-shrink-0" />
+              ) : uploadNotice.type === 'error' ? (
+                <AlertCircle className="w-5 h-5 text-red-400 flex-shrink-0" />
+              ) : (
+                <Globe className="w-5 h-5 text-amber-400 animate-pulse flex-shrink-0" />
+              )}
+              <span className="font-semibold">{uploadNotice.msg}</span>
+            </div>
+            <button
+              onClick={() => setUploadNotice(null)}
+              className="px-2 py-1 rounded-lg bg-white/10 hover:bg-white/20 text-white text-[10px] font-bold"
+            >
+              ✕ Dismiss
+            </button>
+          </div>
+        )}
         
         {/* ========================================================================= */}
         {/* TAB 1: ADD PRODUCT & MANAGE PRODUCTS */}
@@ -702,8 +880,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 {/* Image URL & Local Image Upload */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
                   <div>
-                    <label className="block text-xs font-bold uppercase tracking-wider text-stone-300 mb-1.5">
-                      Product Image URL
+                    <label className="block text-xs font-bold uppercase tracking-wider text-stone-300 mb-1.5 flex items-center justify-between">
+                      <span>Product Image URL</span>
+                      {newProductImage.startsWith('https://raw.githubusercontent.com') && (
+                        <span className="text-[10px] text-emerald-400 font-normal flex items-center gap-1">
+                          <CheckCircle2 className="w-3 h-3" /> Worldwide Live CDN
+                        </span>
+                      )}
                     </label>
                     <input
                       id="input-product-image-url"
@@ -711,20 +894,34 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       placeholder="https://..."
                       value={newProductImage}
                       onChange={(e) => setNewProductImage(e.target.value)}
-                      className="w-full px-3.5 py-2.5 rounded-xl text-xs bg-black/40 border border-white/15 focus:outline-none focus:ring-2 focus:ring-amber-500 text-white"
+                      className="w-full px-3.5 py-2.5 rounded-xl text-xs bg-black/40 border border-white/15 focus:outline-none focus:ring-2 focus:ring-amber-500 text-white font-mono"
                     />
                   </div>
 
                   <div>
                     <label className="block text-xs font-bold uppercase tracking-wider text-stone-300 mb-1.5">
-                      Or Upload Local Product Image
+                      Or Upload Product Image (Device)
                     </label>
-                    <label className="flex items-center justify-center gap-2 w-full px-3.5 py-2.5 rounded-xl text-xs bg-white/10 hover:bg-white/20 border border-white/20 cursor-pointer transition-all font-semibold">
-                      <Upload className="w-4 h-4 text-amber-400" />
-                      <span>Choose Local File...</span>
+                    <label className={`flex items-center justify-center gap-2 w-full px-3.5 py-2.5 rounded-xl text-xs border cursor-pointer transition-all font-semibold ${
+                      isUploadingToGithub === 'product'
+                        ? 'bg-amber-500/30 border-amber-400 text-amber-200 animate-pulse'
+                        : 'bg-white/10 hover:bg-white/20 border-white/20 text-white'
+                    }`}>
+                      {isUploadingToGithub === 'product' ? (
+                        <>
+                          <RefreshCw className="w-4 h-4 text-amber-400 animate-spin" />
+                          <span>Uploading to GitHub CDN...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Upload className="w-4 h-4 text-amber-400" />
+                          <span>Choose File (Auto-Upload)</span>
+                        </>
+                      )}
                       <input
                         type="file"
                         accept="image/*"
+                        disabled={isUploadingToGithub === 'product'}
                         onChange={handleProductImageUpload}
                         className="hidden"
                       />
@@ -1149,6 +1346,39 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               </p>
             </div>
 
+            {/* Worldwide Live Explanation Banner */}
+            <div className="p-4 rounded-2xl bg-gradient-to-r from-amber-950/60 to-slate-900/80 border border-amber-500/30 text-xs space-y-3">
+              <div className="flex items-center gap-2">
+                <Globe className="w-5 h-5 text-amber-400" />
+                <h3 className="font-bold text-amber-300 text-sm">
+                  Worldwide Live Image Sync Setup (Direct CDN Integration)
+                </h3>
+              </div>
+              <p className="text-stone-300 leading-relaxed">
+                By entering your <strong>GitHub Personal Access Token (PAT)</strong>, image uploads for your <strong>Store Logo</strong>, <strong>360° Panorama Hero</strong>, and <strong>Products</strong> will automatically commit directly to your GitHub repository (<code className="bg-black/50 px-1.5 py-0.5 rounded text-amber-300">image/</code> folder) and create a permanent, worldwide live CDN link (<code className="bg-black/50 px-1.5 py-0.5 rounded text-amber-300">https://raw.githubusercontent.com/...</code>).
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1 text-[11px]">
+                <div className="p-2.5 rounded-xl bg-black/40 border border-white/10">
+                  <span className="font-bold text-amber-400 block mb-1">1. Generate Token</span>
+                  <p className="text-stone-400">
+                    Go to <a href="https://github.com/settings/tokens" target="_blank" rel="noopener noreferrer" className="text-sky-400 underline hover:text-sky-300">github.com/settings/tokens</a> and create a token with <code className="text-amber-200">repo</code> scope.
+                  </p>
+                </div>
+                <div className="p-2.5 rounded-xl bg-black/40 border border-white/10">
+                  <span className="font-bold text-amber-400 block mb-1">2. Save in Dashboard</span>
+                  <p className="text-stone-400">
+                    Paste token in the PAT field below and click <strong>"Save GitHub Config"</strong>.
+                  </p>
+                </div>
+                <div className="p-2.5 rounded-xl bg-black/40 border border-white/10">
+                  <span className="font-bold text-amber-400 block mb-1">3. Upload Anywhere</span>
+                  <p className="text-stone-400">
+                    Upload images from your device. They will instantly commit & go live worldwide for all visitors!
+                  </p>
+                </div>
+              </div>
+            </div>
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {/* GitHub Username */}
               <div>
@@ -1365,15 +1595,28 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
             {/* BRANDING IMAGES & 360° HERO SECTION */}
             <div className="pt-4 border-t border-white/10 space-y-4">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-amber-300">
-                Branding Images & 360° Hero
-              </h3>
+              <div className="flex items-center justify-between">
+                <h3 className="text-xs font-bold uppercase tracking-wider text-amber-300 flex items-center gap-2">
+                  <Globe className="w-4 h-4 text-amber-400" />
+                  <span>Branding Images & 360° Hero (Worldwide Live Sync)</span>
+                </h3>
+                <span className="text-[11px] text-amber-300/80">
+                  {tempGithubConfig.personalAccessToken ? '✓ GitHub Auto-Commit Active' : 'ℹ Local / Enter GitHub PAT for auto-commit'}
+                </span>
+              </div>
 
               {/* 1. Store Logo URL / Upload */}
               <div className="p-4 rounded-2xl bg-black/40 border border-white/10 space-y-3">
-                <label className="block text-xs font-bold text-stone-200">
-                  Store Logo URL / GitHub Commit
-                </label>
+                <div className="flex items-center justify-between">
+                  <label className="block text-xs font-bold text-stone-200">
+                    Store Logo URL / GitHub CDN
+                  </label>
+                  {tempStoreSettings.storeLogoUrl.startsWith('https://raw.githubusercontent.com') && (
+                    <span className="text-[10px] text-emerald-400 font-semibold flex items-center gap-1">
+                      <CheckCircle2 className="w-3 h-3" /> Worldwide CDN Live
+                    </span>
+                  )}
+                </div>
                 <div className="flex flex-col sm:flex-row gap-3 items-center">
                   <input
                     id="input-store-logo-url"
@@ -1381,12 +1624,25 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     value={tempStoreSettings.storeLogoUrl}
                     onChange={(e) => setTempStoreSettings({ ...tempStoreSettings, storeLogoUrl: e.target.value })}
                     placeholder="https://raw.githubusercontent.com/lgangotra-hub/EilikacateringCA/main/image/b342ee4f-09da-4caa-80ac-df9cbe79e165.jpg"
-                    className="flex-1 w-full px-3.5 py-2.5 rounded-xl text-xs bg-slate-900 border border-white/15 text-white"
+                    className="flex-1 w-full px-3.5 py-2.5 rounded-xl text-xs bg-slate-900 border border-white/15 text-white font-mono"
                   />
-                  <label className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 cursor-pointer text-xs font-bold flex items-center justify-center gap-1.5 whitespace-nowrap">
-                    <Upload className="w-4 h-4 text-amber-400" />
-                    <span>Upload Local</span>
-                    <input type="file" accept="image/*" onChange={handleLogoUpload} className="hidden" />
+                  <label className={`w-full sm:w-auto px-4 py-2.5 rounded-xl border cursor-pointer text-xs font-bold flex items-center justify-center gap-1.5 whitespace-nowrap transition-all ${
+                    isUploadingToGithub === 'logo'
+                      ? 'bg-amber-500/30 border-amber-400 text-amber-200 animate-pulse'
+                      : 'bg-white/10 hover:bg-white/20 border-white/20 text-white'
+                  }`}>
+                    {isUploadingToGithub === 'logo' ? (
+                      <>
+                        <RefreshCw className="w-4 h-4 text-amber-400 animate-spin" />
+                        <span>Committing to GitHub...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Upload className="w-4 h-4 text-amber-400" />
+                        <span>Upload Logo</span>
+                      </>
+                    )}
+                    <input type="file" accept="image/*" disabled={isUploadingToGithub === 'logo'} onChange={handleLogoUpload} className="hidden" />
                   </label>
                 </div>
                 {/* Logo Preview */}
@@ -1404,16 +1660,23 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     }}
                   />
                   <span className="text-[11px] text-stone-400">
-                    Live Logo Preview (Changes header and drawer instantly)
+                    Live Logo Preview (Syncs header, drawer, and favicon tab)
                   </span>
                 </div>
               </div>
 
               {/* 2. 360° Panorama Hero URL / Upload */}
               <div className="p-4 rounded-2xl bg-black/40 border border-white/10 space-y-3">
-                <label className="block text-xs font-bold text-stone-200">
-                  360° Panorama Hero URL
-                </label>
+                <div className="flex items-center justify-between">
+                  <label className="block text-xs font-bold text-stone-200">
+                    360° Panorama Hero URL
+                  </label>
+                  {tempStoreSettings.panoramaHeroUrl.startsWith('https://raw.githubusercontent.com') && (
+                    <span className="text-[10px] text-emerald-400 font-semibold flex items-center gap-1">
+                      <CheckCircle2 className="w-3 h-3" /> Worldwide CDN Live
+                    </span>
+                  )}
+                </div>
                 <div className="flex flex-col sm:flex-row gap-3 items-center">
                   <input
                     id="input-store-panorama-url"
@@ -1421,16 +1684,29 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     value={tempStoreSettings.panoramaHeroUrl}
                     onChange={(e) => setTempStoreSettings({ ...tempStoreSettings, panoramaHeroUrl: e.target.value })}
                     placeholder="https://pannellum.org/images/alma.jpg"
-                    className="flex-1 w-full px-3.5 py-2.5 rounded-xl text-xs bg-slate-900 border border-white/15 text-white"
+                    className="flex-1 w-full px-3.5 py-2.5 rounded-xl text-xs bg-slate-900 border border-white/15 text-white font-mono"
                   />
-                  <label className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 cursor-pointer text-xs font-bold flex items-center justify-center gap-1.5 whitespace-nowrap">
-                    <Upload className="w-4 h-4 text-amber-400" />
-                    <span>Upload 360 Image</span>
-                    <input type="file" accept="image/*" onChange={handlePanoramaUpload} className="hidden" />
+                  <label className={`w-full sm:w-auto px-4 py-2.5 rounded-xl border cursor-pointer text-xs font-bold flex items-center justify-center gap-1.5 whitespace-nowrap transition-all ${
+                    isUploadingToGithub === 'hero360'
+                      ? 'bg-amber-500/30 border-amber-400 text-amber-200 animate-pulse'
+                      : 'bg-white/10 hover:bg-white/20 border-white/20 text-white'
+                  }`}>
+                    {isUploadingToGithub === 'hero360' ? (
+                      <>
+                        <RefreshCw className="w-4 h-4 text-amber-400 animate-spin" />
+                        <span>Committing to GitHub...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Upload className="w-4 h-4 text-amber-400" />
+                        <span>Upload 360 Image</span>
+                      </>
+                    )}
+                    <input type="file" accept="image/*" disabled={isUploadingToGithub === 'hero360'} onChange={handlePanoramaUpload} className="hidden" />
                   </label>
                 </div>
                 <p className="text-[11px] text-amber-400/80">
-                  Upload 360 Image aur design live change ho jaaye. (Supports equirectangular cylinder / sphere panorama views).
+                  Upload 360 Image to update storefront panorama sphere.
                 </p>
               </div>
             </div>

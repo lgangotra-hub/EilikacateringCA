@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
   DEFAULT_CATEGORIES, 
   DEFAULT_GITHUB_CONFIG, 
@@ -16,6 +16,7 @@ import {
   ThemeConfig, 
   ThemeId 
 } from './types';
+import { fetchLiveStoreDataFromWorldwideCdn } from './services/storeSync';
 import { Header } from './components/Header';
 import { HeroPanorama360 } from './components/HeroPanorama360';
 import { ProductGrid } from './components/ProductGrid';
@@ -139,6 +140,37 @@ export default function App() {
     setGithubConfig(newConfig);
     localStorage.setItem('depanneur_eilika_github', JSON.stringify(newConfig));
   };
+
+  // Worldwide Live Sync: Fetch the latest committed data from the GitHub CDN repository on launch
+  useEffect(() => {
+    async function syncWorldwideData() {
+      const owner = githubConfig.username?.trim() || 'lgangotra-hub';
+      const repo = githubConfig.repository?.trim() || 'EilikacateringCA';
+      const branch = githubConfig.branch?.trim() || 'main';
+
+      const liveBundle = await fetchLiveStoreDataFromWorldwideCdn(owner, repo, branch);
+      if (liveBundle) {
+        if (liveBundle.storeSettings) {
+          setStoreSettings(liveBundle.storeSettings);
+          localStorage.setItem('depanneur_eilika_settings', JSON.stringify(liveBundle.storeSettings));
+        }
+        if (Array.isArray(liveBundle.products) && liveBundle.products.length > 0) {
+          setProducts(liveBundle.products);
+          localStorage.setItem('depanneur_eilika_products', JSON.stringify(liveBundle.products));
+        }
+        if (Array.isArray(liveBundle.categories) && liveBundle.categories.length > 0) {
+          setCategories(liveBundle.categories);
+          localStorage.setItem('depanneur_eilika_categories', JSON.stringify(liveBundle.categories));
+        }
+        if (liveBundle.themeId) {
+          setThemeId(liveBundle.themeId);
+          localStorage.setItem('depanneur_eilika_theme', liveBundle.themeId);
+        }
+      }
+    }
+
+    syncWorldwideData();
+  }, [githubConfig.username, githubConfig.repository, githubConfig.branch]);
 
   // 6. Admin Password State
   const [adminPassword, setAdminPassword] = useState<string>(() => {
