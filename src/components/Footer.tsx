@@ -154,7 +154,7 @@ export const Footer: React.FC<FooterProps> = ({
               Fast Orders & Catering
             </h4>
             <p className="text-xs opacity-80">
-              Need catering for your downtown Montreal office or instant doorstep delivery?
+              Need catering.................................................... for your downtown Montreal office or instant doorstep delivery?
             </p>
 
             <div className="space-y-2 pt-1">
